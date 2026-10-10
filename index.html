@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#F5F5F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#161617" media="(prefers-color-scheme: dark)">
+<title>Conforme : l'audit d'accessibilité en une ligne</title>
+<meta name="description" content="Entrez l'adresse d'un site et obtenez un audit d'accessibilité RGAA complet : images, contrastes, liens, préconisations et export Excel.">
+<link rel="stylesheet" href="/styles.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230068D1'/%3E%3Cpath d='M8 17l5 5 12-12' stroke='%23FFFFFF' stroke-width='3.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+</head>
+<body>
+
+<a class="skip" href="#main">Aller au contenu principal</a>
+
+<header class="toolbar">
+  <div class="toolbar-in">
+    <a class="brand" href="/" aria-label="Conforme, retour à l'accueil de l'outil">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="17" height="17" focusable="false"><path d="M8 17l5 5 12-12" stroke="currentColor" stroke-width="3.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      <span class="brand-name">Conforme</span>
+    </a>
+    <div class="toolbar-actions">
+      <span class="chip">Outil d'audit d'accessibilité</span>
+      <span class="chip chip-mono">RGAA 4.1.2</span>
+      <div class="theme-ctl" id="theme-ctl" role="group" aria-label="Apparence">
+        <button type="button" data-theme="auto" aria-pressed="true">Auto</button>
+        <button type="button" data-theme="clair" aria-pressed="false">Clair</button>
+        <button type="button" data-theme="sombre" aria-pressed="false">Sombre</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ==================== VUE ACCUEIL ==================== -->
+  <section id="view-home" class="view" aria-labelledby="hero-title">
+    <div class="wrap">
+      <div class="hero">
+        <p class="eyebrow">Audit d'accessibilité numérique</p>
+        <h1 id="hero-title" class="hero-title">Un site, une adresse,<br>un audit complet.</h1>
+        <p class="hero-sub">Entrez l'adresse d'un site. L'outil ouvre ses pages, examine les images, les liens et les contrastes, puis rédige un audit RGAA détaillé, exportable en Excel, prêt à transmettre.</p>
+
+        <form id="form" class="form card" novalidate>
+          <label class="form-label" for="url">Adresse du site à auditer</label>
+          <div class="form-row">
+            <input class="form-input" type="text" id="url" name="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="www.votre-site.fr" aria-describedby="form-help">
+            <button class="btn btn-primary" type="submit" id="submit">Lancer l'audit</button>
+          </div>
+          <p class="form-help" id="form-help">L'audit analyse jusqu'à 5 pages du site. Il ne demande aucune connexion ni aucun mot de passe.</p>
+          <p class="mode-badge" id="mode-badge"></p>
+          <p class="form-err" id="form-err" role="alert" hidden></p>
+        </form>
+
+        <ul class="hero-notes" aria-label="Ce que fait l'outil">
+          <li>Méthode officielle RGAA version 4.1.2, 18 tests appliqués.</li>
+          <li>Images, contrastes de texte et liens explicites, mesurés dans un vrai navigateur.</li>
+          <li>Préconisations et plan pluriannuel rédigés automatiquement.</li>
+          <li>Export Excel à 6 onglets, avec menus déroulants, prêt à transmettre.</li>
+        </ul>
+
+        <section class="dossier" aria-labelledby="dossier-title">
+          <div class="dossier-head">
+            <p class="eyebrow">Le dossier, en trois mesures</p>
+            <h2 id="dossier-title" class="section-title">Ce que l'outil mesure, en vrai.</h2>
+            <p class="dossier-sub">Trois instruments de démonstration, fonctionnels : ils utilisent la même méthode de calcul que l'audit.</p>
+          </div>
+
+          <div class="specimens">
+            <article class="specimen card" id="spec-contraste">
+              <p class="spec-k">Mesure 1 · critère 3.2</p>
+              <h3 class="spec-t">Le contraste, à l'oeil et au chiffre.</h3>
+              <p class="spec-txt">Glissez la poignée : le texte passe du non conforme au conforme, exactement comme l'audit le mesure.</p>
+              <div class="contraste-demo">
+                <p class="contraste-texte" id="contraste-texte">Le train part de la voie 4 vers Strasbourg.</p>
+                <label class="slider-label" for="contraste-slider">Couleur du texte, du peu lisible au très lisible</label>
+                <div class="slider-wrap">
+                  <input type="range" id="contraste-slider" min="0" max="100" value="14">
+                  <span class="slider-tick" aria-hidden="true"></span>
+                </div>
+                <div class="contraste-lecture">
+                  <span class="mono ratio" id="contraste-ratio">2,2:1</span>
+                  <span class="verdict-chip v-nc" id="contraste-chip">Non conforme</span>
+                  <span class="contraste-seuil" id="contraste-seuil">Seuil RGAA pour ce texte de 16 px : 4,5:1</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="specimen card" id="spec-lecteur">
+              <p class="spec-k">Mesure 2 · critère 1.1</p>
+              <h3 class="spec-t">L'alternative, ce que le lecteur d'écran entend.</h3>
+              <p class="spec-txt">Activez le lecteur d'écran : sans alternative, l'image devient muette.</p>
+              <div class="lecteur-demo">
+                <svg class="lecteur-img" viewBox="0 0 120 90" role="img" aria-label="Des randonneurs gravissent le chemin de la crête au lever du soleil." focusable="false">
+                  <rect width="120" height="90" rx="10" fill="var(--fill)"/>
+                  <circle cx="88" cy="22" r="11" fill="var(--accent)"/>
+                  <path d="M0 90 L38 42 L58 64 L78 40 L120 90 Z" fill="var(--card-2)" stroke="var(--hair-strong)" stroke-width="1.5"/>
+                  <path d="M30 66 l6 7 4-4" stroke="var(--label-2)" stroke-width="2" fill="none" stroke-linecap="round"/>
+                  <circle cx="34" cy="58" r="3.5" fill="var(--label-2)"/>
+                  <circle cx="44" cy="66" r="3.5" fill="var(--label-2)"/>
+                  <path d="M34 62 l9 9 M44 70 l-9 1" stroke="var(--label-2)" stroke-width="1.2"/>
+                </svg>
+                <div class="lecteur-ctl">
+                  <label class="switch">
+                    <input type="checkbox" id="lecteur-switch">
+                    <span class="track" aria-hidden="true"><span class="knob"></span></span>
+                    <span class="switch-txt">Lecteur d'écran</span>
+                  </label>
+                </div>
+                <p class="bulle" id="lecteur-bulle" aria-live="polite"><span class="bulle-tag">le lecteur d'écran annonce</span><span class="bulle-txt" id="lecteur-txt">image</span></p>
+              </div>
+            </article>
+
+            <article class="specimen plaque-demo card" id="spec-plaque">
+              <div class="plaque-demo-txt">
+                <p class="spec-k">Le rapport</p>
+                <h3 class="spec-t">Une plaque de verdict, prête à transmettre.</h3>
+                <p class="spec-txt">Chaque audit se termine en rapport complet : scores, tests détaillés, préconisations, plan sur trois ans, et export Excel à six onglets.</p>
+                <a class="btn btn-primary" href="#url" id="plaque-cta">Auditer un site maintenant</a>
+              </div>
+              <div class="plaque" aria-hidden="true">
+                <div class="plaque-ligne">
+                  <div class="score-mini"><span class="num">0</span><span class="lab">Taux global</span></div>
+                  <div class="score-mini"><span class="num">0</span><span class="lab">Taux moyen</span></div>
+                  <div class="score-mini"><span class="num">0</span><span class="lab">Pages auditées</span></div>
+                  <span class="badge" id="plaque-badge">Conformité partielle</span>
+                </div>
+                <div class="plaque-foot mono">Audit RGAA 4.1.2 · critères 1.1, 3.2, 6.1 · 18 tests</div>
+              </div>
+            </article>
+          </div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== VUE AUDIT EN COURS ==================== -->
+  <section id="view-run" class="view" hidden aria-labelledby="run-title">
+    <div class="wrap">
+      <div class="run">
+        <p class="eyebrow">Feuille de mesure</p>
+        <h2 id="run-title" class="section-title">Audit en cours</h2>
+        <div class="run-grid">
+          <ol class="stages card" id="stages" aria-label="Étapes de l'audit">
+            <li data-key="fetch"><span class="st-dot" aria-hidden="true"></span><span class="st-txt">Ouverture du site</span><span class="st-status">à venir</span></li>
+            <li data-key="pages"><span class="st-dot" aria-hidden="true"></span><span class="st-txt">Analyse des pages</span><span class="st-status">à venir</span></li>
+            <li data-key="verdict"><span class="st-dot" aria-hidden="true"></span><span class="st-txt">Calcul des verdicts RGAA</span><span class="st-status">à venir</span></li>
+            <li data-key="report"><span class="st-dot" aria-hidden="true"></span><span class="st-txt">Rédaction du rapport</span><span class="st-status">à venir</span></li>
+          </ol>
+          <div class="console card" aria-label="Journal de l'audit">
+            <div class="console-head">
+              <span class="console-title">Journal</span>
+              <span class="console-site" id="run-site"></span>
+            </div>
+            <div class="console-lines" id="console-lines" aria-live="polite" aria-relevant="additions"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== VUE RAPPORT ==================== -->
+  <section id="view-report" class="view" hidden aria-labelledby="report-title">
+    <div class="wrap">
+
+      <header class="report-head">
+        <div class="report-head-txt">
+          <p class="eyebrow">Rapport d'audit</p>
+          <h2 id="report-title" class="report-title">Synthèse de l'audit</h2>
+          <p class="report-site mono" id="report-site"></p>
+        </div>
+        <div class="stamp" id="stamp" aria-label="Verdict de l'audit">
+          <span class="stamp-label" id="stamp-label">en cours</span>
+          <span class="stamp-sub" id="stamp-sub"></span>
+        </div>
+      </header>
+
+      <div class="scoreboard card" id="scoreboard">
+        <div class="score">
+          <span class="score-num" id="score-global">0</span>
+          <span class="score-label">Taux de conformité global</span>
+          <span class="score-def">Tests conformes sur tests applicables</span>
+        </div>
+        <div class="score">
+          <span class="score-num" id="score-mean">0</span>
+          <span class="score-label">Taux moyen</span>
+          <span class="score-def">Moyenne des 3 critères</span>
+        </div>
+        <div class="score">
+          <span class="score-num" id="score-pages">0</span>
+          <span class="score-label">Pages auditées</span>
+          <span class="score-def" id="score-elements">0 éléments examinés</span>
+        </div>
+      </div>
+
+      <div class="countstrip" id="countstrip" role="list" aria-label="Répartition des 18 tests"></div>
+
+      <section class="rsection" id="sec-sites" aria-labelledby="h-sites">
+        <div class="rsection-head">
+          <h3 class="rtitle" id="h-sites">Cadre de l'audit</h3>
+        </div>
+        <div class="cadre-grid" id="cadre"></div>
+      </section>
+
+      <section class="rsection" id="sec-tests" aria-labelledby="h-tests">
+        <div class="rsection-head">
+          <h3 class="rtitle" id="h-tests">Détail des 18 tests</h3>
+          <p class="rnote">Chaque test peut être ouvert pour lire les vérifications, les exemples relevés et la préconisation.</p>
+        </div>
+        <div id="criteria"></div>
+      </section>
+
+      <section class="rsection" id="sec-manual" aria-labelledby="h-manual">
+        <div class="rsection-head">
+          <h3 class="rtitle" id="h-manual">Points à contrôler à la main</h3>
+        </div>
+        <div id="manual"></div>
+      </section>
+
+      <section class="rsection" id="sec-precos" aria-labelledby="h-precos">
+        <div class="rsection-head">
+          <h3 class="rtitle" id="h-precos">Préconisations</h3>
+        </div>
+        <div id="precos"></div>
+      </section>
+
+      <section class="rsection" id="sec-plan" aria-labelledby="h-plan">
+        <div class="rsection-head">
+          <h3 class="rtitle" id="h-plan">Plan pluriannuel (2026 à 2028)</h3>
+        </div>
+        <div class="plan-scroll card">
+          <table class="plan-table" id="plan-table">
+            <caption class="sr-only">Plan pluriannuel, une ligne par action, une colonne par trimestre</caption>
+            <thead>
+              <tr><th scope="col">Action</th><th scope="col">Basé sur</th><th scope="col">Responsable</th><th scope="col" colspan="12" class="th-q">Trimestres</th><th scope="col">Livrable</th></tr>
+            </thead>
+            <tbody id="plan-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="rsection" id="sec-export" aria-labelledby="h-export">
+        <div class="rsection-head">
+          <h3 class="rtitle" id="h-export">Exporter l'audit</h3>
+        </div>
+        <div class="export-box card">
+          <div>
+            <p class="export-title">Le classeur Excel complet</p>
+            <p class="export-txt">Six onglets : Mode d'emploi, Audit, Synthèse, Préconisations, Plan pluriannuel et Référentiel RGAA. Résultats pré-remplis, menus déroulants, scores calculés par formules. Le fichier est accessible et prêt à transmettre à une autre personne.</p>
+          </div>
+          <div class="export-actions">
+            <button class="btn btn-primary" id="btn-export">Télécharger l'audit Excel</button>
+            <button class="btn btn-secondary" id="btn-restart">Auditer un autre site</button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-in">
+    <p><strong>Conforme</strong>, outil d'audit d'accessibilité numérique. Méthode : RGAA version 4.1.2, critères 1.1, 3.2 et 6.1.</p>
+    <p class="footer-note">L'audit automatique est un premier niveau : les points Non testés restent à contrôler à la main avec les outils d'assistance. Référentiel officiel : accessibilite.numerique.gouv.fr</p>
+  </div>
+</footer>
+
+<script src="/vendor/exceljs.min.js"></script>
+<script src="/moteur.js"></script>
+<script src="/export-excel.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
