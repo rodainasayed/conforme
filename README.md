@@ -1,8 +1,8 @@
 # Conforme : plateforme d'audit d'accessibilité numérique
 
-Conforme est une plateforme web qui produit un audit d'accessibilité numérique complet à partir d'une seule entrée : l'adresse d'un site. Vous collez le lien, la plateforme ouvre les pages, les examine, et rend un rapport RGAA détaillé, exportable en Excel, prêt à transmettre à une autre personne.
+Conforme est une plateforme web qui produit un audit d'accessibilité numérique complet à partir d'une seule entrée : l'adresse d'un site. Vous collez le lien, la plateforme ouvre jusqu'à 8 pages, les examine, et rend un rapport RGAA détaillé, exportable en Excel, prêt à transmettre à une autre personne.
 
-Plateforme en ligne : https://rodainaali2004-arch.github.io/conforme/
+Plateforme en ligne : https://rodainasayed.github.io/conforme/
 
 ## Le parcours d'un audit
 

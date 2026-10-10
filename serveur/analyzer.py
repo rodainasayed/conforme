@@ -225,15 +225,30 @@ JS_PAGE_DATA = """
   const parse = (c) => { const m = c.match(/rgba?\\(([\\d.]+),\\s*([\\d.]+),\\s*([\\d.]+)(?:,\\s*([\\d.]+))?\\)/); if (!m) return null; return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]]; };
   const ratio = (a, b) => { const l1 = lum(a[0], a[1], a[2]), l2 = lum(b[0], b[1], b[2]); return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05); };
   const effBg = (el) => {
+    const couches = [];
     let e = el;
     while (e && e !== document.documentElement) {
       const st = getComputedStyle(e);
       const c = parse(st.backgroundColor);
-      if (c && c[3] > 0.9) return {bg: c, overImage: false};
-      if (st.backgroundImage && st.backgroundImage !== 'none') return {bg: null, overImage: true};
+      if (st.backgroundImage && st.backgroundImage !== 'none') {
+        const arrets = [...st.backgroundImage.matchAll(/rgba?\\(([\\d.]+),\\s*([\\d.]+),\\s*([\\d.]+)(?:,\\s*([\\d.]+))?\\)/g)].map((m) => ([+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]]));
+        if (arrets.length) {
+          const pire = arrets.reduce((a, b) => (b[3] > a[3] ? b : a));
+          couches.push(pire);
+        } else {
+          return {bg: null, overImage: true};
+        }
+      }
+      if (c && c[3] > 0.9) { e = null; break; }
+      if (c && c[3] > 0) couches.push(c);
       e = e.parentElement;
     }
-    return {bg: [255, 255, 255], overImage: false};
+    let base = e === null ? null : [255, 255, 255];
+    for (let i = couches.length - 1; i >= 0; i--) {
+      const L = couches[i];
+      base = [0, 1, 2].map((k) => Math.round(base[k] * (1 - L[3]) + L[k] * L[3]));
+    }
+    return {bg: base, overImage: false};
   };
   out.contrast = { checked: 0, fails: [], unsure: [], pairs: {} };
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
@@ -251,7 +266,7 @@ JS_PAGE_DATA = """
     if (!fg) continue;
     const eff = effBg(el);
     if (eff.overImage) {
-      out.contrast.unsure.push({text: t.slice(0, 50), detail: 'texte posé sur une image ou un dégradé, à vérifier à la main', color: st.color});
+      out.contrast.unsure.push({text: t.slice(0, 50), detail: 'texte posé sur une image, à vérifier à la main', color: st.color});
       if (out.contrast.unsure.length >= 12) continue;
       continue;
     }
@@ -522,6 +537,7 @@ class Engine:
         }
         results["meta"] = meta
         results["pages"] = [p["url"] for p in ok_pages]
+        results["ignored"] = [p["url"] for p in page_results if p.get("error")]
         results["tests"] = verdicts["tests"]
         results["scores"] = self.scores(verdicts["tests"])
         results["precos"] = self.precos(verdicts["tests"], meta)

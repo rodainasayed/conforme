@@ -9,13 +9,15 @@
 (() => {
   "use strict";
 
-  const MAX_PAGES = 5;
+  const MAX_PAGES = 8;
+  const TIMEOUT_RECUP = 26000;   /* relais lents : larges délais pour la récupération */
   const TIMEOUT = 13000;
 
   const PROXIES = [
     { nom: "relais allOrigins", url: (u) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u), entetes: {} },
-    { nom: "relais corsproxy", url: (u) => "https://corsproxy.io/?url=" + encodeURIComponent(u), entetes: {} },
+    { nom: "relais allOrigins (variante)", url: (u) => "https://api.allorigins.win/get?url=" + encodeURIComponent(u), entetes: {}, json: "contents" },
     { nom: "relais jina", url: (u) => "https://r.jina.ai/" + u, entetes: { "x-return-format": "html" } },
+    { nom: "relais codetabs", url: (u) => "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(u), entetes: {} },
   ];
 
   const VAGUE = new Set([
@@ -48,29 +50,75 @@
     return { url: p.href };
   }
 
-  async function recupererPage(url, emit) {
-    for (const proxy of PROXIES) {
-      const controle = new AbortController();
-      const chrono = setTimeout(() => controle.abort(), TIMEOUT);
-      try {
-        const r = await fetch(proxy.url(url), { signal: controle.signal, headers: Object.assign({ Accept: "text/html,*/*" }, proxy.entetes) });
-        clearTimeout(chrono);
-        if (!r.ok) throw new Error("code " + r.status);
-        const texte = await r.text();
-        if (texte && texte.length > 250) {
-          emit({ type: "log", text: "Page récupérée via " + proxy.nom + "." });
-          return texte;
-        }
-        throw new Error("réponse vide");
-      } catch (e) {
-        clearTimeout(chrono);
-        emit({ type: "log", text: proxy.nom + " : échec (" + String(e.message || e).slice(0, 40) + "), essai suivant." });
-      }
-    }
-    throw new Error("aucun relais n'a pu récupérer cette page (site protégé ou hors ligne)");
+  function estDefi(texte) {
+    if (!texte || texte.length < 250) return true;
+    const bas = texte.slice(0, 6000).toLowerCase();
+    if (/datadome|captcha|challenge-platform|cf-chl|cf_chl|just a moment|attention required|checking your browser|veuillez patienter|verifying you are|access denied|accès refusé|enable javascript/.test(bas)) return true;
+    const titre = (texte.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1] || "";
+    const domaine = (texte.match(/https?:\/\/([^\/\s"]+)/) || [])[1] || "";
+    const t = titre.trim().toLowerCase().replace(/^www\./, "");
+    if (t && domaine && t === domaine.toLowerCase().replace(/^www\./, "")) return true;
+    if (/^Title:\s/m.test(texte) && /Markdown Content:/.test(texte)) return true; /* jina a renvoyé du markdown au lieu du html */
+    const texteNu = texte.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    return texteNu.length < 350;
   }
 
-  function liensInternes(html, baseUrl, limite) {
+  async function tenterRelais(proxy, url, signalDef) {
+    const r = await fetch(proxy.url(url), { signal: signalDef.signal, headers: Object.assign({ Accept: "text/html,*/*" }, proxy.entetes) });
+    if (!r.ok) throw new Error("code " + r.status);
+    let texte = await r.text();
+    if (proxy.json) {
+      try { texte = JSON.parse(texte).contents || ""; } catch (e) { throw new Error("réponse illisible"); }
+    }
+    if (estDefi(texte)) throw new Error("page de vérification, vide ou format markdown");
+    return texte;
+  }
+
+  async function recupererPage(url, emit) {
+    const ordres = [
+      [0, 1, 2, 3],
+      [3, 2, 1, 0],
+    ];
+    for (let manche = 0; manche < ordres.length; manche++) {
+      for (const idx of ordres[manche]) {
+        const proxy = PROXIES[idx];
+        const controle = new AbortController();
+        const chrono = setTimeout(() => controle.abort(), TIMEOUT_RECUP);
+        try {
+          const texte = await tenterRelais(proxy, url, { signal: controle.signal });
+          clearTimeout(chrono);
+          emit({ type: "log", text: "Page récupérée via " + proxy.nom + "." });
+          return texte;
+        } catch (e) {
+          clearTimeout(chrono);
+          emit({ type: "log", text: proxy.nom + " : " + String(e.message || e).slice(0, 44) + ", essai suivant." });
+        }
+      }
+      if (manche === 0) {
+        const pause = 2600 + Math.floor(Math.random() * 1200);
+        emit({ type: "log", text: "Tous les relais ont buté sur cette page, nouvelle tentative après " + Math.round(pause / 100) / 10 + " s." });
+        await new Promise((r) => setTimeout(r, pause));
+      }
+    }
+    throw new Error("aucun relais n'a pu récupérer cette page (site protégé, trop lent, ou relais saturés)");
+  }
+
+  // petit réservoir de tâches : N auditions de pages en même temps, pas plus
+  async function reservoir(liste, taille, travail) {
+    const resultats = new Array(liste.length);
+    let suivant = 0;
+    async function ouvrier() {
+      while (suivant < liste.length) {
+        const i = suivant;
+        suivant += 1;
+        resultats[i] = await travail(liste[i], i);
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(taille, liste.length) }, ouvrier));
+    return resultats;
+  }
+
+  function liensInternes(html, baseUrl, limite, navDArtabord = true) {
     const doc = new DOMParser().parseFromString(html, "text/html");
     const origin = new URL(baseUrl).hostname.replace(/^www\./, "");
     const vus = new Set();
@@ -87,7 +135,7 @@
       const cible = { url: abs.href, dansNav: !!a.closest("nav, header") };
       (cible.dansNav ? nav : autres).push(cible);
     }
-    return nav.concat(autres).slice(0, limite).map((c) => c.url);
+    return (navDArtabord ? nav.concat(autres) : autres.concat(nav)).slice(0, limite).map((c) => c.url);
   }
 
   /* ---------------- le script d'analyse exécuté dans le iframe ---------------- */
@@ -247,13 +295,23 @@
           let base = null, surImage = false, e = el;
           while (e && e !== doc.documentElement) {
             const st2 = win.getComputedStyle(e);
-            if (st2.backgroundImage && st2.backgroundImage !== "none") { surImage = true; break; }
+            if (st2.backgroundImage && st2.backgroundImage !== "none") {
+              const bgi = st2.backgroundImage;
+              const arrets = [...bgi.matchAll(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)/g)].map((m) => ([+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]]));
+              if (arrets.length) {
+                // pire cas : l'arrêt le plus opaque du dégradé, composé sur ce qui est dessous
+                const pire = arrets.reduce((a, b) => (b[3] > a[3] ? b : a));
+                couches.push(pire);
+              } else {
+                surImage = true; break;  /* image bitmap : non mesurable */
+              }
+            }
             const c = parseC(st2.backgroundColor);
             if (c && c[3] >= 1) { base = c.slice(0, 3); break; }
             if (c && c[3] > 0) couches.push(c);
             e = e.parentElement;
           }
-          if (surImage) { contrast.unsure.push({ text: t.slice(0, 50), detail: "texte posé sur une image ou un dégradé, à vérifier à la main", color: st.color }); continue; }
+          if (surImage) { contrast.unsure.push({ text: t.slice(0, 50), detail: "texte posé sur une image, à vérifier à la main", color: st.color }); continue; }
           if (!base) base = [255, 255, 255];
           for (let i = couches.length - 1; i >= 0; i--) {
             const L = couches[i];
@@ -690,26 +748,42 @@
     emit({ type: "stage", key: "fetch", text: "Ouverture du site", status: "fait" });
 
     emit({ type: "stage", key: "pages", text: "Analyse des pages (" + MAX_PAGES + " max)", status: "en cours" });
-    const candidats = [url].concat(liensInternes(html, url, MAX_PAGES - 1).filter((u) => u.replace(/\/$/, "") !== url.replace(/\/$/, "")));
-    emit({ type: "log", text: "Échantillon retenu : " + candidats.map((u, i) => (i + 1) + ". " + u).join(" , ") });
 
-    const pages = [];
-    for (let i = 0; i < candidats.length; i++) {
-      emit({ type: "log", text: "Page " + (i + 1) + "/" + candidats.length + " : " + candidats[i] });
-      let r;
-      if (i > 0) {
-        try {
-          const h = await recupererPage(candidats[i], emit);
-          r = await auditPage(h, candidats[i]);
-        } catch (e) {
-          r = { url: candidats[i], error: String(e.message || e).slice(0, 100) };
+    // niveau 1 : les liens de navigation de la page d'accueil
+    let candidats = liensInternes(html, url, MAX_PAGES - 1, true);
+    if (candidats.length < 3) candidats = candidats.concat(liensInternes(html, url, MAX_PAGES - 1, false));
+    candidats = [...new Set(candidats.map((u) => u.replace(/\/$/, "")))].slice(0, MAX_PAGES - 1).map((u) => u + (u.endsWith("/") ? "" : ""));
+    const echantillon = [url].concat(candidats.filter((u) => u.replace(/\/$/, "") !== url.replace(/\/$/, "")));
+    emit({ type: "log", text: "Échantillon retenu : " + echantillon.map((u, i) => (i + 1) + ". " + u).join(" , ") });
+
+    // niveau 2 : les liens du premier sous-page pour compléter l'échantillon
+    if (echantillon.length < MAX_PAGES && echantillon.length >= 2) {
+      try {
+        const h2 = await recupererPage(echantillon[1], emit);
+        const plus = liensInternes(h2, echantillon[1], MAX_PAGES - echantillon.length, false)
+          .filter((u) => !echantillon.some((x) => x.replace(/\/$/, "") === u.replace(/\/$/, "")));
+        for (const u of plus) {
+          if (echantillon.length >= MAX_PAGES) break;
+          echantillon.push(u);
         }
-      } else {
-        r = await auditPage(html, candidats[i]);
-      }
-      if (r.error) emit({ type: "log", text: "Page ignorée : " + r.error });
-      pages.push(r);
+        if (plus.length) emit({ type: "log", text: "Échantillon élargi avec les liens internes du sous-page : +" + plus.length + " page(s)." });
+      } catch (e) { /* le sous-page est resté fermé, on garde l'échantillon */ }
     }
+
+    // audit des pages : trois au plus en même temps (les relais sont limités)
+    const pages = await reservoir(echantillon, 3, async (u, i) => {
+      emit({ type: "log", text: "Page " + (i + 1) + "/" + echantillon.length + " : " + u });
+      try {
+        const h = await recupererPage(u, emit);
+        const r = await auditPage(h, u);
+        if (r.error) emit({ type: "log", text: "Page ignorée : " + r.error });
+        return r;
+      } catch (e) {
+        const msg = String(e.message || e).slice(0, 90);
+        emit({ type: "log", text: "Page ignorée : " + msg });
+        return { url: u, error: msg };
+      }
+    });
 
     emit({ type: "stage", key: "pages", text: "Analyse des pages", status: "fait" });
     emit({ type: "stage", key: "verdict", text: "Calcul des verdicts RGAA", status: "en cours" });
@@ -717,6 +791,8 @@
 
     const v = verdicts(pages);
     emit({ type: "stage", key: "verdict", text: "Calcul des verdicts RGAA", status: "fait" });
+    const ignorees = pages.filter((p) => p.error).length;
+    if (ignorees) emit({ type: "log", text: ignorees + " page(s) non accessible(s) : le site ou le relais a refusé. Elles sont listées dans le rapport." });
 
     const okPages = pages.filter((p) => !p.error);
     const meta = {
@@ -736,6 +812,7 @@
     const res = {
       meta: meta,
       pages: okPages.map((p) => p.url),
+      ignored: pages.filter((p) => p.error).map((p) => p.url),
       tests: v.tests,
       scores: scores(v.tests),
       precos: [], plan: [], manual: [],

@@ -244,6 +244,13 @@
     dPages.style.gridColumn = "1 / -1";
     dPages.innerHTML = '<span class="cadre-k">Pages auditées</span><span class="cadre-v mono">' + (res.pages || []).map(esc).join("<br>") + "</span>";
     cadre.appendChild(dPages);
+    if ((res.ignored || []).length) {
+      const dIgn = document.createElement("div");
+      dIgn.className = "cadre-cell";
+      dIgn.style.gridColumn = "1 / -1";
+      dIgn.innerHTML = '<span class="cadre-k">Pages non accessibles (refus du site ou du relais)</span><span class="cadre-v mono">' + (res.ignored || []).map(esc).join("<br>") + "</span>";
+      cadre.appendChild(dIgn);
+    }
 
     // tests par critère
     const critBox = $("#criteria");
@@ -435,7 +442,7 @@
   }
 
   function initReveal() {
-    const cibles = document.querySelectorAll(".specimen, .plaque-demo");
+    const cibles = document.querySelectorAll(".reveal");
     if (REDUIT || !("IntersectionObserver" in window)) {
       for (const c of cibles) c.classList.add("vu");
       return;
@@ -444,12 +451,33 @@
       for (const e of entries) {
         if (e.isIntersecting) {
           e.target.classList.add("vu");
-          if (e.target.classList.contains("plaque-demo")) e.target.classList.add("tamponne");
+          if (e.target.id === "spec-plaque") animerPlaque();
           io.unobserve(e.target);
         }
       }
-    }, { threshold: 0.35 });
+    }, { threshold: 0.3 });
     for (const c of cibles) io.observe(c);
+  }
+
+  function animerPlaque() {
+    const demo = document.getElementById("spec-plaque");
+    if (demo) demo.classList.add("tamponne");
+    const cibles = [["demo-g", "72,7"], ["demo-m", "70,0"], ["demo-p", "4"]];
+    for (const [id, val] of cibles) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      const cible = parseFloat(val.replace(",", "."));
+      const entier = id === "demo-p";
+      if (REDUIT) { el.textContent = entier ? String(cible) : val; continue; }
+      const t0 = performance.now();
+      const pas = (t) => {
+        const k = Math.min(1, (t - t0) / 900);
+        const v = cible * (1 - Math.pow(1 - k, 3));
+        el.textContent = entier ? String(Math.round(v)) : String(Math.round(v * 10) / 10).replace(".", ",");
+        if (k < 1) requestAnimationFrame(pas);
+      };
+      requestAnimationFrame(pas);
+    }
   }
 
   /* ---------------- spécimens fonctionnels (le dossier en trois mesures) ---------------- */
@@ -501,7 +529,13 @@
       chipC.textContent = ok ? "Conforme" : "Non conforme";
       chipC.className = "verdict-chip " + (ok ? "v-c" : "v-nc");
       slider.setAttribute("aria-valuetext", "Contraste " + affiche + (ok ? ", conforme" : ", non conforme"));
-      wrap.style.setProperty("--seuil-x", (window.__seuilX || 58) + "%");
+      const anneau = document.getElementById("anneau");
+      if (anneau) {
+        const C = 2 * Math.PI * 54;
+        const prog = Math.max(0, Math.min(1, (val - 1) / 20));
+        anneau.style.strokeDashoffset = String(C * (1 - prog));
+        anneau.style.stroke = ok ? "var(--good)" : "var(--bad)";
+      }
     }
     window.__specimenContraste = maj;
 
@@ -579,6 +613,14 @@
     initSpecimens();
     detecterMode();
     $("#url").focus();
+    const mqSombre = window.matchMedia("(prefers-color-scheme: dark)");
+    const onAutoTheme = () => {
+      if (!document.documentElement.getAttribute("data-theme")) {
+        if (window.__specimenContraste) window.__specimenContraste();
+        if (window.__specimenLecteur) window.__specimenLecteur();
+      }
+    };
+    try { mqSombre.addEventListener("change", onAutoTheme); } catch (e) { try { mqSombre.addListener(onAutoTheme); } catch (e2) {} }
   });
 
 })();
