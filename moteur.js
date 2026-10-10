@@ -16,8 +16,8 @@
   const PROXIES = [
     { nom: "relais allOrigins", url: (u) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u), entetes: {} },
     { nom: "relais allOrigins (variante)", url: (u) => "https://api.allorigins.win/get?url=" + encodeURIComponent(u), entetes: {}, json: "contents" },
-    { nom: "relais jina", url: (u) => "https://r.jina.ai/" + u, entetes: { "x-return-format": "html" } },
     { nom: "relais codetabs", url: (u) => "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(u), entetes: {} },
+    { nom: "relais jina", url: (u) => "https://r.jina.ai/" + u, entetes: { "x-return-format": "html" } },
   ];
 
   const VAGUE = new Set([
@@ -63,8 +63,13 @@
     return texteNu.length < 350;
   }
 
+  function avecBuste(url) {
+    /* les relais mettent en cache : une marque unique force la version fraîche */
+    return url + (url.includes("?") ? "&" : "?") + "_c=" + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
+  }
+
   async function tenterRelais(proxy, url, signalDef) {
-    const r = await fetch(proxy.url(url), { signal: signalDef.signal, headers: Object.assign({ Accept: "text/html,*/*" }, proxy.entetes) });
+    const r = await fetch(proxy.url(avecBuste(url)), { signal: signalDef.signal, headers: Object.assign({ Accept: "text/html,*/*" }, proxy.entetes) });
     if (!r.ok) throw new Error("code " + r.status);
     let texte = await r.text();
     if (proxy.json) {
